@@ -1,7 +1,5 @@
 package token
 
-import "core:fmt"
-import "core:testing"
 
 TokenType :: enum {
 	Illegal,
@@ -33,16 +31,15 @@ Token :: struct {
 	literal: string,
 }
 
+keywords := map[string]TokenType {
+	"fn"  = .Function,
+	"let" = .Let,
+}
 
-@(test)
-test_next_token :: proc(t: ^testing.T) {
-	input := `=+(){},;`
-
-	tests := []struct {
-		expected_type:    TokenType,
-		expected_literal: string,
-	}{{TokenType.Assign, "="}, {TokenType.Plus, "+"}}
-
-	fmt.println("tests: ", tests)
-
+lookup_ident :: proc(ident: string) -> TokenType {
+	tok, ok := keywords[ident]
+	if ok {
+		return tok
+	}
+	return .Ident
 }

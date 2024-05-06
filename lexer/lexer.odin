@@ -1,6 +1,7 @@
 package lexer
 
 import "core:fmt"
+import "core:strings"
 import "core:testing"
 
 import "../token"
@@ -30,7 +31,41 @@ read_char :: proc(lexer: ^Lexer) {
 	lexer.read_position += 1
 }
 
+read_identifier :: proc(lexer: ^Lexer) -> string {
+	position := lexer.position
+	for is_letter(lexer.ch) {
+		read_char(lexer)
+	}
+	return lexer.input[position:lexer.position]
+}
+
+is_letter :: proc(ch: byte) -> bool {
+	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z'
+}
+
+read_number :: proc(lexer: ^Lexer) -> string {
+	position := lexer.position
+	for is_digit(lexer.ch) {
+		read_char(lexer)
+	}
+	return lexer.input[position:lexer.read_position]
+}
+
+is_digit :: proc(ch: byte) -> bool {
+	return '0' <= ch && ch <= '9'
+}
+
+skip_whitespace :: proc(lexer: ^Lexer) {
+	for lexer.ch == ' ' ||
+	    lexer.ch == '\t' ||
+	    lexer.ch == '\n' ||
+	    lexer.ch == '\r' {
+		read_char(lexer)
+	}
+}
+
 next_token :: proc(lexer: ^Lexer) -> token.Token {
+	skip_whitespace(lexer)
 	char_str := curr_string(lexer^)
 	tok := token.Token {
 		type    = .Illegal,
@@ -58,6 +93,17 @@ next_token :: proc(lexer: ^Lexer) -> token.Token {
 		tok.type = .Eof
 		tok.literal = ""
 	case:
+		if is_letter(lexer.ch) {
+			tok.literal = read_identifier(lexer)
+			tok.type = token.lookup_ident(tok.literal)
+			return tok
+		} else if is_digit(lexer.ch) {
+			tok.type = .Int
+			tok.literal = read_number(lexer)
+			return tok
+		} else {
+			tok.type = .Illegal
+		}
 	}
 
 	read_char(lexer)
@@ -75,21 +121,57 @@ curr_string :: proc(lexer: Lexer) -> string {
 
 @(test)
 test_next_token :: proc(t: ^testing.T) {
-	input := `=+(){},;`
+	input := `let five = 5;
+let ten = 10;
+
+let add = fn(x, y) {
+    x + y;
+};
+
+let result = add(five, ten);
+`
 
 	tests := []struct {
 		expected_type:    token.TokenType,
 		expected_literal: string,
 	} {
-		{token.TokenType.Assign, "="},
-		{token.TokenType.Plus, "+"},
-		{token.TokenType.Lparen, "("},
-		{token.TokenType.Rparen, ")"},
-		{token.TokenType.Lbrace, "{"},
-		{token.TokenType.Rbrace, "}"},
-		{token.TokenType.Comma, ","},
-		{token.TokenType.Semicolon, ";"},
-		{token.TokenType.Eof, ""},
+		{.Let, "let"},
+		{.Ident, "five"},
+		{.Assign, "="},
+		{.Int, "5"},
+		{.Semicolon, ";"},
+		{.Let, "let"},
+		{.Ident, "ten"},
+		{.Assign, "="},
+		{.Int, "10"},
+		{.Semicolon, ";"},
+		{.Let, "let"},
+		{.Ident, "add"},
+		{.Assign, "="},
+		{.Function, "fn"},
+		{.Lparen, "("},
+		{.Ident, "x"},
+		{.Comma, ","},
+		{.Ident, "y"},
+		{.Rparen, ")"},
+		{.Lbrace, "{"},
+		{.Ident, "x"},
+		{.Plus, "+"},
+		{.Ident, "y"},
+		{.Semicolon, ";"},
+		{.Rbrace, "}"},
+		{.Semicolon, ";"},
+		{.Let, "let"},
+		{.Ident, "result"},
+		{.Assign, "="},
+		{.Ident, "add"},
+		{.Lparen, "("},
+		{.Ident, "five"},
+		{.Comma, ","},
+		{.Ident, "ten"},
+		{.Rparen, ")"},
+		{.Semicolon, ";"},
+		{.Eof, ""},
 	}
 
 	lexer := new(input)
@@ -110,6 +192,4 @@ test_next_token :: proc(t: ^testing.T) {
 			)
 		}
 	}
-
-
 }
