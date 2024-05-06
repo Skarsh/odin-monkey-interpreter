@@ -64,6 +64,14 @@ skip_whitespace :: proc(lexer: ^Lexer) {
 	}
 }
 
+peek_char :: proc(lexer: Lexer) -> byte {
+    if lexer.read_position >= len(lexer.input) {
+        return 0
+    } else {
+        return lexer.input[lexer.read_position]
+    }
+}
+
 next_token :: proc(lexer: ^Lexer) -> token.Token {
 	skip_whitespace(lexer)
 	char_str := curr_string(lexer^)
@@ -73,8 +81,14 @@ next_token :: proc(lexer: ^Lexer) -> token.Token {
 	}
 
 	switch lexer.ch {
-	case '=':
-		tok.type = .Assign
+	case '=': 
+        if peek_char(lexer^) == '=' {
+            tok.type = .Eq
+            tok.literal = lexer.input[lexer.position:lexer.read_position + 1]
+            read_char(lexer)
+        } else {
+            tok.type = .Assign
+        }
 	case ';':
 		tok.type = .Semicolon
 	case '(':
@@ -85,6 +99,24 @@ next_token :: proc(lexer: ^Lexer) -> token.Token {
 		tok.type = .Comma
 	case '+':
 		tok.type = .Plus
+	case '-':
+		tok.type = .Minus
+	case '!':
+        if peek_char(lexer^) == '=' {
+            tok.type = .NotEq
+            tok.literal = lexer.input[lexer.position:lexer.read_position + 1]
+            read_char(lexer)
+        } else {
+            tok.type = .Bang
+        }
+	case '*':
+		tok.type = .Asterisk
+	case '/':
+		tok.type = .Slash
+	case '<':
+		tok.type = .Less
+	case '>':
+		tok.type = .Greater
 	case '{':
 		tok.type = .Lbrace
 	case '}':
@@ -129,6 +161,18 @@ let add = fn(x, y) {
 };
 
 let result = add(five, ten);
+
+!-/*5;
+5 < 10 > 5;
+
+if (5 < 10) {
+    return true;
+} else {
+    return false;
+}
+
+10 == 10;
+10 != 9;
 `
 
 	tests := []struct {
@@ -140,11 +184,13 @@ let result = add(five, ten);
 		{.Assign, "="},
 		{.Int, "5"},
 		{.Semicolon, ";"},
+
 		{.Let, "let"},
 		{.Ident, "ten"},
 		{.Assign, "="},
 		{.Int, "10"},
 		{.Semicolon, ";"},
+
 		{.Let, "let"},
 		{.Ident, "add"},
 		{.Assign, "="},
@@ -161,6 +207,7 @@ let result = add(five, ten);
 		{.Semicolon, ";"},
 		{.Rbrace, "}"},
 		{.Semicolon, ";"},
+
 		{.Let, "let"},
 		{.Ident, "result"},
 		{.Assign, "="},
@@ -171,6 +218,48 @@ let result = add(five, ten);
 		{.Ident, "ten"},
 		{.Rparen, ")"},
 		{.Semicolon, ";"},
+
+		{.Bang, "!"},
+		{.Minus, "-"},
+		{.Slash, "/"},
+		{.Asterisk, "*"},
+		{.Int, "5"},
+		{.Semicolon, ";"},
+		{.Int, "5"},
+		{.Less, "<"},
+		{.Int, "10"},
+		{.Greater, ">"},
+		{.Int, "5"},
+		{.Semicolon, ";"},
+
+		{.If, "if"},
+		{.Lparen, "("},
+		{.Int, "5"},
+		{.Less, "<"},
+		{.Int, "10"},
+		{.Rparen, ")"},
+		{.Lbrace, "{"},
+		{.Return, "return"},
+		{.True, "true"},
+		{.Semicolon, ";"},
+		{.Rbrace, "}"},
+		{.Else, "else"},
+		{.Lbrace, "{"},
+		{.Return, "return"},
+		{.False, "false"},
+		{.Semicolon, ";"},
+		{.Rbrace, "}"},
+
+		{.Int, "10"},
+		{.Eq, "=="},
+		{.Int, "10"},
+		{.Semicolon, ";"},
+		{.Int, "10"},
+		{.NotEq, "!="},
+		{.Int, "9"},
+		{.Semicolon, ";"},
+    
+
 		{.Eof, ""},
 	}
 

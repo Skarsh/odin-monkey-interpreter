@@ -12,6 +12,14 @@ TokenType :: enum {
 	// Operators
 	Assign,
 	Plus,
+	Minus,
+	Bang,
+	Asterisk,
+	Slash,
+	Less,
+	Greater,
+	Eq,
+	NotEq,
 
 	// Delimiters
 	Comma,
@@ -24,6 +32,11 @@ TokenType :: enum {
 	// Keywords
 	Function,
 	Let,
+	True,
+	False,
+	If,
+	Else,
+	Return,
 }
 
 Token :: struct {
@@ -32,8 +45,13 @@ Token :: struct {
 }
 
 keywords := map[string]TokenType {
-	"fn"  = .Function,
-	"let" = .Let,
+	"fn"     = .Function,
+	"let"    = .Let,
+	"true"   = .True,
+	"false"  = .False,
+	"if"     = .If,
+	"else"   = .Else,
+	"return" = .Return,
 }
 
 lookup_ident :: proc(ident: string) -> TokenType {
