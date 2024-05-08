@@ -48,7 +48,7 @@ read_number :: proc(lexer: ^Lexer) -> string {
 	for is_digit(lexer.ch) {
 		read_char(lexer)
 	}
-	return lexer.input[position:lexer.read_position]
+	return lexer.input[position:lexer.position]
 }
 
 is_digit :: proc(ch: byte) -> bool {
@@ -65,11 +65,11 @@ skip_whitespace :: proc(lexer: ^Lexer) {
 }
 
 peek_char :: proc(lexer: Lexer) -> byte {
-    if lexer.read_position >= len(lexer.input) {
-        return 0
-    } else {
-        return lexer.input[lexer.read_position]
-    }
+	if lexer.read_position >= len(lexer.input) {
+		return 0
+	} else {
+		return lexer.input[lexer.read_position]
+	}
 }
 
 next_token :: proc(lexer: ^Lexer) -> token.Token {
@@ -81,14 +81,14 @@ next_token :: proc(lexer: ^Lexer) -> token.Token {
 	}
 
 	switch lexer.ch {
-	case '=': 
-        if peek_char(lexer^) == '=' {
-            tok.type = .Eq
-            tok.literal = lexer.input[lexer.position:lexer.read_position + 1]
-            read_char(lexer)
-        } else {
-            tok.type = .Assign
-        }
+	case '=':
+		if peek_char(lexer^) == '=' {
+			tok.type = .Eq
+			tok.literal = lexer.input[lexer.position:lexer.read_position + 1]
+			read_char(lexer)
+		} else {
+			tok.type = .Assign
+		}
 	case ';':
 		tok.type = .Semicolon
 	case '(':
@@ -102,13 +102,13 @@ next_token :: proc(lexer: ^Lexer) -> token.Token {
 	case '-':
 		tok.type = .Minus
 	case '!':
-        if peek_char(lexer^) == '=' {
-            tok.type = .NotEq
-            tok.literal = lexer.input[lexer.position:lexer.read_position + 1]
-            read_char(lexer)
-        } else {
-            tok.type = .Bang
-        }
+		if peek_char(lexer^) == '=' {
+			tok.type = .NotEq
+			tok.literal = lexer.input[lexer.position:lexer.read_position + 1]
+			read_char(lexer)
+		} else {
+			tok.type = .Bang
+		}
 	case '*':
 		tok.type = .Asterisk
 	case '/':
@@ -184,13 +184,11 @@ if (5 < 10) {
 		{.Assign, "="},
 		{.Int, "5"},
 		{.Semicolon, ";"},
-
 		{.Let, "let"},
 		{.Ident, "ten"},
 		{.Assign, "="},
 		{.Int, "10"},
 		{.Semicolon, ";"},
-
 		{.Let, "let"},
 		{.Ident, "add"},
 		{.Assign, "="},
@@ -207,7 +205,6 @@ if (5 < 10) {
 		{.Semicolon, ";"},
 		{.Rbrace, "}"},
 		{.Semicolon, ";"},
-
 		{.Let, "let"},
 		{.Ident, "result"},
 		{.Assign, "="},
@@ -218,7 +215,6 @@ if (5 < 10) {
 		{.Ident, "ten"},
 		{.Rparen, ")"},
 		{.Semicolon, ";"},
-
 		{.Bang, "!"},
 		{.Minus, "-"},
 		{.Slash, "/"},
@@ -231,7 +227,6 @@ if (5 < 10) {
 		{.Greater, ">"},
 		{.Int, "5"},
 		{.Semicolon, ";"},
-
 		{.If, "if"},
 		{.Lparen, "("},
 		{.Int, "5"},
@@ -249,7 +244,6 @@ if (5 < 10) {
 		{.False, "false"},
 		{.Semicolon, ";"},
 		{.Rbrace, "}"},
-
 		{.Int, "10"},
 		{.Eq, "=="},
 		{.Int, "10"},
@@ -258,8 +252,6 @@ if (5 < 10) {
 		{.NotEq, "!="},
 		{.Int, "9"},
 		{.Semicolon, ";"},
-    
-
 		{.Eof, ""},
 	}
 
@@ -273,10 +265,23 @@ if (5 < 10) {
 				t,
 				fmt.bprintf(
 					buffer[:],
-					"test[%d] - tokentype wrong. expected = %s, got = %s",
+					"tests[%d] - tokentype wrong. expected = %s, got = %s",
 					i,
 					tt.expected_type,
 					tok.type,
+				),
+			)
+		}
+
+		if tok.literal != tt.expected_literal {
+			testing.fail_now(
+				t,
+				fmt.bprintf(
+					buffer[:],
+					"tests[%d] - literal wrong. expected = %s, got %s",
+					i,
+					tt.expected_literal,
+					tok.literal,
 				),
 			)
 		}
