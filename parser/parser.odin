@@ -1,6 +1,7 @@
 package parser
 
 import "core:fmt"
+import "core:strings"
 import "core:testing"
 
 import "../ast"
@@ -11,6 +12,7 @@ Parser :: struct {
 	lexer:      lexer.Lexer,
 	cur_token:  token.Token,
 	peek_token: token.Token,
+	errors:     [dynamic]string,
 }
 
 new :: proc(lexer: lexer.Lexer) -> Parser {
@@ -24,6 +26,21 @@ new :: proc(lexer: lexer.Lexer) -> Parser {
 	return parser
 }
 
+errors :: proc(parser: Parser) -> []string {
+	return parser.errors[:]
+}
+
+peek_error :: proc(parser: ^Parser, token_type: token.TokenType) {
+	buffer := [1024]byte{}
+	msg := fmt.bprintf(
+		buffer[:],
+		"exptected next token to be %v, got %v instead",
+		token_type,
+		parser.peek_token,
+	)
+	// TODO(Thomas): Think about allocations here. Do we need to clone?
+	append(&parser.errors, strings.clone(msg))
+}
 
 next_token :: proc(parser: ^Parser) {
 	parser.cur_token = parser.peek_token
@@ -93,6 +110,7 @@ expect_peek :: proc(parser: ^Parser, token_type: token.TokenType) -> bool {
 		next_token(parser)
 		return true
 	} else {
+		peek_error(parser, token_type)
 		return false
 	}
 }
@@ -108,6 +126,7 @@ let foobar = 838383;
 	parser := new(lex)
 
 	program := parse_program(&parser)
+	check_parser_errors(t, parser)
 
 	// TODO(Thomas): Go example from the book, what should we do here?
 	//if program == nil {
@@ -201,4 +220,17 @@ test_let_statement :: proc(
 
 
 	return true
+}
+
+check_parser_errors :: proc(t: ^testing.T, parser: Parser) {
+	errors := errors(parser)
+	if len(errors) == 0 {
+		return
+	}
+
+	fmt.printfln("parser has %d errors", len(errors))
+	for error_msg in errors {
+		fmt.printfln("parser error: %s", error_msg)
+	}
+	testing.fail_now(t)
 }
