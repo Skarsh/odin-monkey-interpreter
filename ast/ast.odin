@@ -10,8 +10,11 @@ Statement :: union #no_nil {
 	ExpressionStatement,
 }
 
-// Maybe tagged union instead??
-Expression :: struct {}
+Expression :: union #no_nil {
+	Identifier,
+	PrefixExpression,
+	InfixExpression,
+}
 
 Program :: struct {
 	statements: [dynamic]Statement,
@@ -23,7 +26,10 @@ LetStatement :: struct {
 	value: Expression,
 }
 
-ReturnStatement :: struct {}
+ReturnStatement :: struct {
+	token:        token.Token,
+	return_value: Expression,
+}
 
 ExpressionStatement :: struct {}
 
@@ -31,6 +37,10 @@ Identifier :: struct {
 	token: token.Token, // the token.Ident token
 	value: string,
 }
+
+PrefixExpression :: struct {}
+
+InfixExpression :: struct {}
 
 statement_token_literal :: proc(statement: Statement) -> string {
 	switch v in statement {

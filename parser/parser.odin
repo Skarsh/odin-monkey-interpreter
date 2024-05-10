@@ -36,7 +36,7 @@ peek_error :: proc(parser: ^Parser, token_type: token.TokenType) {
 		buffer[:],
 		"exptected next token to be %v, got %v instead",
 		token_type,
-		parser.peek_token,
+		parser.peek_token.type,
 	)
 	// TODO(Thomas): Think about allocations here. Do we need to clone?
 	append(&parser.errors, strings.clone(msg))
@@ -65,6 +65,8 @@ parse_statement :: proc(parser: ^Parser) -> (ast.Statement, bool) {
 	#partial switch parser.cur_token.type {
 	case .Let:
 		return parse_let_statement(parser)
+	case .Return:
+		return parse_return_statement(parser)
 	case:
 		return ast.Statement{}, false
 	}
@@ -87,6 +89,27 @@ parse_let_statement :: proc(parser: ^Parser) -> (ast.LetStatement, bool) {
 	if !expect_peek(parser, .Assign) {
 		return ast.LetStatement{}, false
 	}
+
+	// TODO: We're skipping the expressions until we 
+	// encounter a semicolon
+	for !cur_token_is(parser^, .Semicolon) {
+		next_token(parser)
+	}
+
+	return statement, true
+}
+
+parse_return_statement :: proc(
+	parser: ^Parser,
+) -> (
+	ast.ReturnStatement,
+	bool,
+) {
+	statement := ast.ReturnStatement {
+		token = parser.cur_token,
+	}
+
+	next_token(parser)
 
 	// TODO: We're skipping the expressions until we 
 	// encounter a semicolon
@@ -164,56 +187,38 @@ test_let_statement :: proc(
 	name: string,
 ) -> bool {
 
-	buffer := [1024]byte{}
-
 	statement_token_literal := ast.statement_token_literal(statement)
 	if statement_token_literal != "let" {
-		testing.fail_now(
+		testing.errorf(
 			t,
-			fmt.bprintf(
-				buffer[:],
-				"statement.token_literal not 'let. got = %s",
-				statement_token_literal,
-			),
+			"statement.token_literal not 'let'. got %s",
+			statement_token_literal,
 		)
 		return false
 	}
 
 	let_statement, ok := statement.(ast.LetStatement)
 	if !ok {
-		testing.fail_now(
-			t,
-			fmt.bprintf(
-				buffer[:],
-				"statement not ast.LetStatement, got %t",
-				statement,
-			),
-		)
+		testing.errorf(t, "statement not ast.LetStatement, got %t", statement)
 		return false
 	}
 
 	if let_statement.name.value != name {
-		testing.fail_now(
+		testing.errorf(
 			t,
-			fmt.bprintf(
-				buffer[:],
-				"let_statment.name.value not '%s'. got = %s",
-				name,
-				let_statement.name.value,
-			),
+			"let_statement.name.value not '%s'. got %s",
+			name,
+			let_statement.name.value,
 		)
 		return false
 	}
 
 	if let_statement.name.token.literal != name {
-		testing.fail_now(
+		testing.errorf(
 			t,
-			fmt.bprintf(
-				buffer[:],
-				"let_statement.name.token.literal not '%s'. got = '%s'",
-				name,
-				let_statement.name.token.literal,
-			),
+			"let_statement.name.token.literal not '%s'. got '%s'",
+			name,
+			let_statement.token.literal,
 		)
 		return false
 	}
@@ -233,4 +238,52 @@ check_parser_errors :: proc(t: ^testing.T, parser: Parser) {
 		fmt.printfln("parser error: %s", error_msg)
 	}
 	testing.fail_now(t)
+}
+
+@(test)
+test_return_statements :: proc(t: ^testing.T) {
+	input := `
+return 5;
+return 10;
+return 993322;
+`
+	lexer := lexer.new(input)
+	parser := new(lexer)
+
+	program := parse_program(&parser)
+
+	check_parser_errors(t, parser)
+
+	buffer := [1024]byte{}
+	if len(program.statements) != 3 {
+		testing.fail_now(
+			t,
+			fmt.bprintf(
+				buffer[:],
+				"program.statements does not contain 3 statements. got = %d",
+				len(program.statements),
+			),
+		)
+	}
+
+	for statement in program.statements {
+		return_statement, ok := statement.(ast.ReturnStatement)
+		if !ok {
+			testing.errorf(
+				t,
+				"statement not ast.ReturnStatement. got = %v",
+				statement,
+			)
+			continue
+		}
+
+		if return_statement.token.literal != "return" {
+			testing.errorf(
+				t,
+				"return_statement.token.literal not 'return', got %s",
+				return_statement.token.literal,
+			)
+		}
+	}
+
 }
