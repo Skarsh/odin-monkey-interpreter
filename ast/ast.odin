@@ -54,8 +54,7 @@ statement_token_literal :: proc(statement: Statement) -> string {
 		return "return"
 	case ExpressionStatement:
 		return ""
+	case:
+		unreachable()
 	}
-
-	// TODO(Thomas): Should be unreachable, how can we make sure this never happens?
-	return ""
 }
