@@ -20,6 +20,10 @@ Program :: struct {
 	statements: [dynamic]Statement,
 }
 
+destroy_program :: proc(program: ^Program) {
+	delete(program.statements)
+}
+
 LetStatement :: struct {
 	token: token.Token,
 	name:  Identifier,

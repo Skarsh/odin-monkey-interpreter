@@ -26,6 +26,10 @@ new :: proc(lexer: lexer.Lexer) -> Parser {
 	return parser
 }
 
+destroy_parser :: proc(parser: ^Parser) {
+	delete(parser.errors)
+}
+
 errors :: proc(parser: Parser) -> []string {
 	return parser.errors[:]
 }
@@ -147,8 +151,10 @@ let foobar = 838383;
 `
 	lex := lexer.new(input)
 	parser := new(lex)
+	defer destroy_parser(&parser)
 
 	program := parse_program(&parser)
+	defer ast.destroy_program(&program)
 	check_parser_errors(t, parser)
 
 	// TODO(Thomas): Go example from the book, what should we do here?
@@ -189,36 +195,49 @@ test_let_statement :: proc(
 
 	statement_token_literal := ast.statement_token_literal(statement)
 	if statement_token_literal != "let" {
-		testing.errorf(
+		testing.expectf(
 			t,
-			"statement.token_literal not 'let'. got %s",
-			statement_token_literal,
+			false,
+			fmt.tprintf(
+				"statement.token_literal not 'let'. got %s",
+				statement_token_literal,
+			),
 		)
 		return false
 	}
 
 	let_statement, ok := statement.(ast.LetStatement)
 	if !ok {
-		testing.errorf(t, "statement not ast.LetStatement, got %t", statement)
+		testing.expectf(
+			t,
+			false,
+			fmt.tprintf("statement not ast.LetStatement, got %t", statement),
+		)
 		return false
 	}
 
 	if let_statement.name.value != name {
-		testing.errorf(
+		testing.expectf(
 			t,
-			"let_statement.name.value not '%s'. got %s",
-			name,
-			let_statement.name.value,
+			false,
+			fmt.tprintf(
+				"let_statement.name.value not '%s'. got %s",
+				name,
+				let_statement.name.value,
+			),
 		)
 		return false
 	}
 
 	if let_statement.name.token.literal != name {
-		testing.errorf(
+		testing.expectf(
 			t,
-			"let_statement.name.token.literal not '%s'. got '%s'",
-			name,
-			let_statement.token.literal,
+			false,
+			fmt.tprintf(
+				"let_statement.name.token.literal not '%s'. got '%s'",
+				name,
+				let_statement.token.literal,
+			),
 		)
 		return false
 	}
@@ -249,8 +268,10 @@ return 993322;
 `
 	lexer := lexer.new(input)
 	parser := new(lexer)
+	destroy_parser(&parser)
 
 	program := parse_program(&parser)
+	ast.destroy_program(&program)
 
 	check_parser_errors(t, parser)
 
@@ -269,19 +290,25 @@ return 993322;
 	for statement in program.statements {
 		return_statement, ok := statement.(ast.ReturnStatement)
 		if !ok {
-			testing.errorf(
+			testing.expectf(
 				t,
-				"statement not ast.ReturnStatement. got = %v",
-				statement,
+				false,
+				fmt.tprintf(
+					"statement not ast.ReturnStatement. got = %v",
+					statement,
+				),
 			)
 			continue
 		}
 
 		if return_statement.token.literal != "return" {
-			testing.errorf(
+			testing.expectf(
 				t,
-				"return_statement.token.literal not 'return', got %s",
-				return_statement.token.literal,
+				false,
+				fmt.tprintf(
+					"return_statement.token.literal not 'return', got %s",
+					return_statement.token.literal,
+				),
 			)
 		}
 	}
