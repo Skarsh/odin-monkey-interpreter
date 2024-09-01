@@ -13,9 +13,10 @@ start :: proc() {
 
 	// TODO(Thomas): Support multi-line input
 	for {
+		fmt.printf(">> ")
 		n, err := os.read(os.stdin, buf[:])
-		if err < 0 {
-			if err == os.ERROR_HANDLE_EOF {
+		if err != nil {
+			if err == os.ERROR_EOF {
 				return
 			}
 			fmt.eprintfln("Error reading input %v", err)
