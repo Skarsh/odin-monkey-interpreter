@@ -4,3 +4,5 @@
 
 # Linux exe
 odin-monkey-interpreter
+
+*.bin
