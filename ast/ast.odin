@@ -19,6 +19,7 @@ Statement :: union #no_nil {
 
 Expression :: union {
 	Identifier,
+	IntegerLiteral,
 	PrefixExpression,
 	InfixExpression,
 }
@@ -63,6 +64,11 @@ Identifier :: struct {
 PrefixExpression :: struct {}
 
 InfixExpression :: struct {}
+
+IntegerLiteral :: struct {
+	token: token.Token,
+	value: i64,
+}
 
 statement_token_literal :: proc(statement: Statement) -> string {
 	switch stmt in statement {
@@ -117,6 +123,8 @@ expression_string :: proc(expression: Expression) -> string {
 	switch expr in expression {
 	case Identifier:
 		return identifier_string(expr)
+	case IntegerLiteral:
+		return integer_literal_string(expr)
 	case PrefixExpression:
 		return ""
 	case InfixExpression:
@@ -128,6 +136,10 @@ expression_string :: proc(expression: Expression) -> string {
 
 identifier_string :: proc(identifier: Identifier) -> string {
 	return identifier.value
+}
+
+integer_literal_string :: proc(integer_literal: IntegerLiteral) -> string {
+	return fmt.tprintf("%d", integer_literal.value)
 }
 
 @(test)

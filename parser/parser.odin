@@ -1,6 +1,7 @@
 package parser
 
 import "core:fmt"
+import "core:strconv"
 import "core:strings"
 import "core:testing"
 
@@ -40,6 +41,7 @@ new :: proc(lexer: lexer.Lexer) -> Parser {
 
 	parser.prefix_parse_fns = make(map[token.TokenType]prefix_parse_fn)
 	register_prefix(&parser, token.TokenType.Ident, parse_identifier)
+	register_prefix(&parser, token.TokenType.Int, parse_integer_literal)
 
 	// Read two tokens, so cur_token and peek_token are both set
 	next_token(&parser)
@@ -198,6 +200,24 @@ parse_identifier :: proc(parser: ^Parser) -> ast.Expression {
 		token = parser.cur_token,
 		value = parser.cur_token.literal,
 	}
+}
+
+parse_integer_literal :: proc(parser: ^Parser) -> ast.Expression {
+	literal := ast.IntegerLiteral {
+		token = parser.cur_token,
+	}
+
+	value, err := strconv.parse_i64(parser.cur_token.literal)
+	if !err {
+		msg := fmt.tprintf(
+			"could not parse %v as integer",
+			parser.cur_token.literal,
+		)
+		append(&parser.errors, msg)
+		return nil
+	}
+	literal.value = value
+	return literal
 }
 
 cur_token_is :: proc(parser: Parser, token_type: token.TokenType) -> bool {
@@ -448,4 +468,67 @@ test_identifier_expression :: proc(t: ^testing.T) {
 			),
 		)
 	}
+}
+
+@(test)
+test_integer_literal_expression :: proc(t: ^testing.T) {
+	input := "5;"
+	l := lexer.new(input)
+	p := new(l)
+	defer destroy_parser(&p)
+
+	program := parse_program(&p)
+	defer ast.destroy_program(&program)
+	check_parser_errors(t, p)
+
+	if len(program.statements) != 1 {
+		testing.fail_now(
+			t,
+			fmt.tprintf(
+				"program has not enough statements. got: %v",
+				len(program.statements),
+			),
+		)
+	}
+
+	stmt, stmt_ok := program.statements[0].(ast.ExpressionStatement)
+	if !stmt_ok {
+		testing.fail_now(
+			t,
+			fmt.tprintf(
+				"program.statements[0] is not ast.ExpressionsStatement. got: %t",
+				program.statements[0],
+			),
+		)
+	}
+
+	literal, literal_ok := stmt.expression.(ast.IntegerLiteral)
+	if !literal_ok {
+		testing.fail_now(
+			t,
+			fmt.tprintf(
+				"exp not ast.IntegerLiteral. got: %t",
+				stmt.expression,
+			),
+		)
+	}
+
+	if literal.value != 5 {
+		testing.fail_now(
+			t,
+			fmt.tprintf("literal.value not %d. got: %d", 5, literal.value),
+		)
+	}
+
+	if literal.token.literal != "5" {
+		testing.fail_now(
+			t,
+			fmt.tprintf(
+				"literal.token.literal not %s. got %s",
+				"5",
+				literal.token.literal,
+			),
+		)
+	}
+
 }
