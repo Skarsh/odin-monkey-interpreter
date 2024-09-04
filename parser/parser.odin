@@ -8,17 +8,38 @@ import "../ast"
 import "../lexer"
 import "../token"
 
+Precedence :: enum {
+	Lowest = 1,
+	Equals, // == 
+	LessGreater, // > or <
+	Sum, // +
+	Product, // *
+	Prefix, // -X or !X
+	Call, // myFunction(X)
+}
+
+prefix_parse_fn :: proc(parser: ^Parser) -> ast.Expression
+infix_parse_fn :: proc(
+	parser: ^Parser,
+	expression: ast.Expression,
+) -> ast.Expression
+
 Parser :: struct {
-	lexer:      lexer.Lexer,
-	cur_token:  token.Token,
-	peek_token: token.Token,
-	errors:     [dynamic]string,
+	lexer:            lexer.Lexer,
+	cur_token:        token.Token,
+	peek_token:       token.Token,
+	errors:           [dynamic]string,
+	prefix_parse_fns: map[token.TokenType]prefix_parse_fn,
+	infix_parse_fns:  map[token.TokenType]infix_parse_fn,
 }
 
 new :: proc(lexer: lexer.Lexer) -> Parser {
 	parser := Parser {
 		lexer = lexer,
 	}
+
+	parser.prefix_parse_fns = make(map[token.TokenType]prefix_parse_fn)
+	register_prefix(&parser, token.TokenType.Ident, parse_identifier)
 
 	// Read two tokens, so cur_token and peek_token are both set
 	next_token(&parser)
@@ -28,6 +49,23 @@ new :: proc(lexer: lexer.Lexer) -> Parser {
 
 destroy_parser :: proc(parser: ^Parser) {
 	delete(parser.errors)
+	delete(parser.prefix_parse_fns)
+}
+
+register_prefix :: proc(
+	parser: ^Parser,
+	token_type: token.TokenType,
+	fn: prefix_parse_fn,
+) {
+	parser.prefix_parse_fns[token_type] = fn
+}
+
+register_infix :: proc(
+	parser: ^Parser,
+	token_type: token.TokenType,
+	fn: infix_parse_fn,
+) {
+	parser.infix_parse_fns[token_type] = fn
 }
 
 errors :: proc(parser: Parser) -> []string {
@@ -72,7 +110,7 @@ parse_statement :: proc(parser: ^Parser) -> (ast.Statement, bool) {
 	case .Return:
 		return parse_return_statement(parser)
 	case:
-		return ast.Statement{}, false
+		return parse_expression_statement(parser)
 	}
 }
 
@@ -122,6 +160,44 @@ parse_return_statement :: proc(
 	}
 
 	return statement, true
+}
+
+parse_expression_statement :: proc(
+	parser: ^Parser,
+) -> (
+	ast.ExpressionStatement,
+	bool,
+) {
+	stmt := ast.ExpressionStatement {
+		token = parser.cur_token,
+	}
+	stmt.expression = parse_expression(parser, .Lowest)
+	if stmt.expression == nil {
+		return stmt, false
+	}
+	if peek_token_is(parser^, token.TokenType.Semicolon) {
+		next_token(parser)
+	}
+	return stmt, true
+}
+
+parse_expression :: proc(
+	parser: ^Parser,
+	precedence: Precedence,
+) -> ast.Expression {
+	prefix := parser.prefix_parse_fns[parser.cur_token.type]
+	if prefix == nil {
+		return nil
+	}
+	left_exp := prefix(parser)
+	return left_exp
+}
+
+parse_identifier :: proc(parser: ^Parser) -> ast.Expression {
+	return ast.Identifier {
+		token = parser.cur_token,
+		value = parser.cur_token.literal,
+	}
 }
 
 cur_token_is :: proc(parser: Parser, token_type: token.TokenType) -> bool {
@@ -268,10 +344,10 @@ return 993322;
 `
 	lexer := lexer.new(input)
 	parser := new(lexer)
-	destroy_parser(&parser)
+	defer destroy_parser(&parser)
 
 	program := parse_program(&parser)
-	ast.destroy_program(&program)
+	defer ast.destroy_program(&program)
 
 	check_parser_errors(t, parser)
 
@@ -313,4 +389,63 @@ return 993322;
 		}
 	}
 
+}
+
+@(test)
+test_identifier_expression :: proc(t: ^testing.T) {
+	input := "foobar;"
+
+	l := lexer.new(input)
+	p := new(l)
+	defer destroy_parser(&p)
+	program := parse_program(&p)
+	defer ast.destroy_program(&program)
+	check_parser_errors(t, p)
+
+	if len(program.statements) != 1 {
+		testing.fail_now(
+			t,
+			fmt.tprintf(
+				"program has not enough statements. got: %v",
+				len(program.statements),
+			),
+		)
+	}
+
+	stmt, stmt_ok := program.statements[0].(ast.ExpressionStatement)
+	if !stmt_ok {
+		testing.fail_now(
+			t,
+			fmt.tprintf(
+				"exp not ast.ExpressionStatment. got: %t",
+				program.statements[0],
+			),
+		)
+	}
+
+	ident, expr_ok := stmt.expression.(ast.Identifier)
+	if !expr_ok {
+		testing.fail_now(
+			t,
+			fmt.tprintf("exp not ast.Identifier. got: %t", stmt.expression),
+		)
+	}
+
+	if ident.value != "foobar" {
+		testing.fail_now(
+			t,
+			fmt.tprintf("ident.value not %s. got: %s", "foobar", ident.value),
+		)
+	}
+
+	if ident.token.literal != "foobar" {
+		testing.fail_now(
+			t,
+			fmt.tprintf(
+				"ident.token.literal not %s. got: %s",
+				"foobar",
+				ident.token.literal,
+			),
+		)
+	}
 }
