@@ -253,11 +253,6 @@ let foobar = 838383;
 	defer ast.destroy_program(&program)
 	check_parser_errors(t, parser)
 
-	// TODO(Thomas): Go example from the book, what should we do here?
-	//if program == nil {
-	//    t.Fatalf("ParseProgram() returned nil")
-	//}
-
 	buffer := [1024]byte{}
 
 	if len(program.statements) != 3 {
