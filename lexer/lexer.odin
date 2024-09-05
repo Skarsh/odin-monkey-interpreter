@@ -259,31 +259,26 @@ if (5 < 10) {
 
 	for tt, i in tests {
 		tok := next_token(&lexer)
-		buffer := [1024]byte{}
-		if tok.type != tt.expected_type {
-			testing.fail_now(
-				t,
-				fmt.bprintf(
-					buffer[:],
-					"tests[%d] - tokentype wrong. expected = %s, got = %s",
-					i,
-					tt.expected_type,
-					tok.type,
-				),
-			)
-		}
+		testing.expectf(
+			t,
+			tok.type == tt.expected_type,
+			fmt.tprintf(
+				"tests[%d] - tokentype wrong. expected: %s, got: %s",
+				i,
+				tt.expected_type,
+				tok.type,
+			),
+		)
 
-		if tok.literal != tt.expected_literal {
-			testing.fail_now(
-				t,
-				fmt.bprintf(
-					buffer[:],
-					"tests[%d] - literal wrong. expected = %s, got %s",
-					i,
-					tt.expected_literal,
-					tok.literal,
-				),
-			)
-		}
+		testing.expectf(
+			t,
+			tok.literal == tt.expected_literal,
+			fmt.tprintf(
+				"tests[%d] - literal wrong. expected: %s, got: %s",
+				i,
+				tt.expected_literal,
+				tok.literal,
+			),
+		)
 	}
 }
