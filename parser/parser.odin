@@ -1,6 +1,7 @@
 package parser
 
 import "core:fmt"
+import "core:log"
 import "core:strconv"
 import "core:strings"
 import "core:testing"
@@ -75,15 +76,12 @@ errors :: proc(parser: Parser) -> []string {
 }
 
 peek_error :: proc(parser: ^Parser, token_type: token.TokenType) {
-	buffer := [1024]byte{}
-	msg := fmt.bprintf(
-		buffer[:],
-		"exptected next token to be %v, got %v instead",
+	msg := fmt.tprintf(
+		"expected next token to be %v, got %v instead",
 		token_type,
 		parser.peek_token.type,
 	)
-	// TODO(Thomas): Think about allocations here. Do we need to clone?
-	append(&parser.errors, strings.clone(msg))
+	append(&parser.errors, msg)
 }
 
 next_token :: proc(parser: ^Parser) {
@@ -253,18 +251,14 @@ let foobar = 838383;
 	defer ast.destroy_program(&program)
 	check_parser_errors(t, parser)
 
-	buffer := [1024]byte{}
-
-	if len(program.statements) != 3 {
-		testing.fail_now(
-			t,
-			fmt.bprintf(
-				buffer[:],
-				"program.statements does not contain 3 statements. got = %d",
-				len(program.statements),
-			),
-		)
-	}
+	testing.expectf(
+		t,
+		len(program.statements) == 3,
+		fmt.tprintf(
+			"program.statements does not contain 3 statements. got: %d",
+			len(program.statements),
+		),
+	)
 
 	tests := []struct {
 		expected_identifier: string,
@@ -302,7 +296,10 @@ test_let_statement :: proc(
 		testing.expectf(
 			t,
 			false,
-			fmt.tprintf("statement not ast.LetStatement, got %t", statement),
+			fmt.tprintf(
+				"statement not ast.LetStatement, got %v",
+				typeid_of(type_of(statement)),
+			),
 		)
 		return false
 	}
@@ -343,9 +340,9 @@ check_parser_errors :: proc(t: ^testing.T, parser: Parser) {
 		return
 	}
 
-	fmt.printfln("parser has %d errors", len(errors))
+	log.errorf("parser has %d errors", len(errors))
 	for error_msg in errors {
-		fmt.printfln("parser error: %s", error_msg)
+		log.errorf("parser error: %s", error_msg)
 	}
 	testing.fail_now(t)
 }
@@ -366,24 +363,21 @@ return 993322;
 
 	check_parser_errors(t, parser)
 
-	buffer := [1024]byte{}
-	if len(program.statements) != 3 {
-		testing.fail_now(
-			t,
-			fmt.bprintf(
-				buffer[:],
-				"program.statements does not contain 3 statements. got = %d",
-				len(program.statements),
-			),
-		)
-	}
+	testing.expectf(
+		t,
+		len(program.statements) == 3,
+		fmt.tprintf(
+			"program.statements does not contain 3 statements. got: %d",
+			len(program.statements),
+		),
+	)
 
 	for statement in program.statements {
 		return_statement, ok := statement.(ast.ReturnStatement)
 		if !ok {
 			testing.expectf(
 				t,
-				false,
+				ok,
 				fmt.tprintf(
 					"statement not ast.ReturnStatement. got = %v",
 					statement,
@@ -392,16 +386,14 @@ return 993322;
 			continue
 		}
 
-		if return_statement.token.literal != "return" {
-			testing.expectf(
-				t,
-				false,
-				fmt.tprintf(
-					"return_statement.token.literal not 'return', got %s",
-					return_statement.token.literal,
-				),
-			)
-		}
+		testing.expectf(
+			t,
+			return_statement.token.literal == "return",
+			fmt.tprintf(
+				"return_statement.token.literal not 'return'. got: %s",
+				return_statement.token.literal,
+			),
+		)
 	}
 
 }
@@ -417,52 +409,53 @@ test_identifier_expression :: proc(t: ^testing.T) {
 	defer ast.destroy_program(&program)
 	check_parser_errors(t, p)
 
-	if len(program.statements) != 1 {
-		testing.fail_now(
-			t,
-			fmt.tprintf(
-				"program has not enough statements. got: %v",
-				len(program.statements),
-			),
-		)
-	}
+	testing.expectf(
+		t,
+		len(program.statements) == 1,
+		fmt.tprintf(
+			"program has not enough statements. got: %v",
+			len(program.statements),
+		),
+	)
 
 	stmt, stmt_ok := program.statements[0].(ast.ExpressionStatement)
-	if !stmt_ok {
-		testing.fail_now(
-			t,
-			fmt.tprintf(
-				"exp not ast.ExpressionStatment. got: %t",
-				program.statements[0],
-			),
-		)
-	}
+
+	testing.expectf(
+		t,
+		stmt_ok,
+		fmt.tprintf(
+			"program.statements[0] is not ast.ExpressionStatement. got: %v",
+			typeid_of(type_of(program.statements[0])),
+		),
+	)
 
 	ident, expr_ok := stmt.expression.(ast.Identifier)
-	if !expr_ok {
-		testing.fail_now(
-			t,
-			fmt.tprintf("exp not ast.Identifier. got: %t", stmt.expression),
-		)
-	}
 
-	if ident.value != "foobar" {
-		testing.fail_now(
-			t,
-			fmt.tprintf("ident.value not %s. got: %s", "foobar", ident.value),
-		)
-	}
+	testing.expectf(
+		t,
+		expr_ok,
+		fmt.tprintf(
+			"exp not ast.Identifier. got: %v",
+			typeid_of(type_of(stmt.expression)),
+		),
+	)
 
-	if ident.token.literal != "foobar" {
-		testing.fail_now(
-			t,
-			fmt.tprintf(
-				"ident.token.literal not %s. got: %s",
-				"foobar",
-				ident.token.literal,
-			),
-		)
-	}
+	testing.expectf(
+		t,
+		ident.value == "foobar",
+		fmt.tprintf("ident.value not %s. got %s", "foobar", ident.value),
+	)
+
+	testing.expectf(
+		t,
+		ident.token.literal == "foobar",
+		fmt.tprintf(
+			"ident.token.literal not %s. got: %s",
+			"foobar",
+			ident.token.literal,
+		),
+	)
+
 }
 
 @(test)
@@ -476,54 +469,51 @@ test_integer_literal_expression :: proc(t: ^testing.T) {
 	defer ast.destroy_program(&program)
 	check_parser_errors(t, p)
 
-	if len(program.statements) != 1 {
-		testing.fail_now(
-			t,
-			fmt.tprintf(
-				"program has not enough statements. got: %v",
-				len(program.statements),
-			),
-		)
-	}
+	testing.expectf(
+		t,
+		len(program.statements) == 1,
+		fmt.tprintf(
+			"program has not enough statements. got: %v",
+			len(program.statements),
+		),
+	)
 
 	stmt, stmt_ok := program.statements[0].(ast.ExpressionStatement)
-	if !stmt_ok {
-		testing.fail_now(
-			t,
-			fmt.tprintf(
-				"program.statements[0] is not ast.ExpressionsStatement. got: %t",
-				program.statements[0],
-			),
-		)
-	}
+
+	testing.expectf(
+		t,
+		stmt_ok,
+		fmt.tprintf(
+			"program.statements[0] is not ast.ExpressionStatement. got: %v",
+			typeid_of(type_of(program.statements[0])),
+		),
+	)
 
 	literal, literal_ok := stmt.expression.(ast.IntegerLiteral)
-	if !literal_ok {
-		testing.fail_now(
-			t,
-			fmt.tprintf(
-				"exp not ast.IntegerLiteral. got: %t",
-				stmt.expression,
-			),
-		)
-	}
 
-	if literal.value != 5 {
-		testing.fail_now(
-			t,
-			fmt.tprintf("literal.value not %d. got: %d", 5, literal.value),
-		)
-	}
+	testing.expectf(
+		t,
+		literal_ok,
+		fmt.tprintf(
+			"exp not ast.IntegerLiteral. got: %v",
+			typeid_of(type_of(stmt.expression)),
+		),
+	)
 
-	if literal.token.literal != "5" {
-		testing.fail_now(
-			t,
-			fmt.tprintf(
-				"literal.token.literal not %s. got %s",
-				"5",
-				literal.token.literal,
-			),
-		)
-	}
+	testing.expectf(
+		t,
+		literal.value == 5,
+		fmt.tprintf("literal.value not %d. got: %d", 5, literal.value),
+	)
+
+	testing.expectf(
+		t,
+		literal.token.literal == "5",
+		fmt.tprintf(
+			"literal.token.literal not %s. got %s",
+			"5",
+			literal.token.literal,
+		),
+	)
 
 }
