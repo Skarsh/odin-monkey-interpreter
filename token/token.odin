@@ -1,5 +1,5 @@
+#+feature dynamic-literals
 package token
-
 
 TokenType :: enum {
 	Illegal,
